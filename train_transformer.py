@@ -66,7 +66,7 @@ feature_dim = X.shape[2]
 
 inputs = Input(shape=(sequence_length, feature_dim))
 
-x = Dense(256)(inputs)
+x = Dense(128)(inputs)
 
 positions = tf.range(
     start=0,
@@ -76,13 +76,13 @@ positions = tf.range(
 
 position_embedding = Embedding(
     input_dim=sequence_length,
-    output_dim=256
+    output_dim=128
 )(positions)
 
 x = x + position_embedding
 
 attn_output = MultiHeadAttention(
-    num_heads=8,
+    num_heads=4,
     key_dim=32,
     dropout=0.2
 )(x, x)
@@ -90,15 +90,15 @@ attn_output = MultiHeadAttention(
 x = Add()([x, attn_output])
 x = LayerNormalization()(x)
 
-ffn = Dense(512, activation="relu")(x)
+ffn = Dense(256, activation="relu")(x)
 ffn = Dropout(0.2)(ffn)
-ffn = Dense(256)(ffn)
+ffn = Dense(128)(ffn)
 
 x = Add()([x, ffn])
 x = LayerNormalization()(x)
 
 attn_output = MultiHeadAttention(
-    num_heads=8,
+    num_heads=4,
     key_dim=32,
     dropout=0.2
 )(x, x)
@@ -106,35 +106,19 @@ attn_output = MultiHeadAttention(
 x = Add()([x, attn_output])
 x = LayerNormalization()(x)
 
-ffn = Dense(512, activation="relu")(x)
+ffn = Dense(256, activation="relu")(x)
 ffn = Dropout(0.2)(ffn)
-ffn = Dense(256)(ffn)
-
-x = Add()([x, ffn])
-x = LayerNormalization()(x)
-
-attn_output = MultiHeadAttention(
-    num_heads=8,
-    key_dim=32,
-    dropout=0.2
-)(x, x)
-
-x = Add()([x, attn_output])
-x = LayerNormalization()(x)
-
-ffn = Dense(512, activation="relu")(x)
-ffn = Dropout(0.2)(ffn)
-ffn = Dense(256)(ffn)
+ffn = Dense(128)(ffn)
 
 x = Add()([x, ffn])
 x = LayerNormalization()(x)
 
 x = GlobalAveragePooling1D()(x)
 
-x = Dense(256, activation="relu")(x)
-x = Dropout(0.4)(x)
-
 x = Dense(128, activation="relu")(x)
+x = Dropout(0.3)(x)
+
+x = Dense(64, activation="relu")(x)
 x = Dropout(0.3)(x)
 
 outputs = Dense(
@@ -188,4 +172,4 @@ loss, accuracy = model.evaluate(
 
 print(f"Test Accuracy: {accuracy:.4f}")
 
-model.save("transformer_model_v2.keras")
+model.save("transformer_model_v3.keras")

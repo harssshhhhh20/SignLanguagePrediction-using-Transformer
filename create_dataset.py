@@ -7,8 +7,9 @@ import pickle
 from tqdm import tqdm
 
 VIDEO_DIR = "videos"
-OUTPUT_DIR = "dataset"
-NUM_CLASSES = 50
+OUTPUT_DIR = "datasetv2"
+
+NUM_CLASSES = 20
 SEQUENCE_LENGTH = 30
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -60,22 +61,36 @@ video_files = [
     if f.endswith(".mp4")
 ]
 
+saved_count = 0
+skipped_count = 0
+
+matched = 0
+not_found = 0
+too_short = 0
+saved = 0
+
 for video_file in tqdm(video_files):
 
     video_id = video_file.replace(".mp4", "")
 
     if video_id not in video_to_label:
+        not_found += 1
         continue
+
+    matched += 1
 
     label = video_to_label[video_id]
 
-    video_path = os.path.join(VIDEO_DIR, video_file)
+    cap = cv2.VideoCapture(
+        os.path.join(VIDEO_DIR, video_file)
+    )
 
-    cap = cv2.VideoCapture(video_path)
+    total_frames = int(
+        cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    )
 
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    if total_frames < 5:
+    if total_frames < 10:
+        too_short += 1
         cap.release()
         continue
 
@@ -105,8 +120,8 @@ for video_file in tqdm(video_files):
                 cv2.COLOR_BGR2RGB
             )
 
-            hand_results = hands.process(frame_rgb)
             pose_results = pose.process(frame_rgb)
+            hand_results = hands.process(frame_rgb)
 
             features = np.zeros(258)
 
@@ -152,7 +167,26 @@ for video_file in tqdm(video_files):
     while len(sequence) < SEQUENCE_LENGTH:
         sequence.append(np.zeros(258))
 
-    sequence = np.array(sequence, dtype=np.float32)
+    sequence = np.array(
+        sequence,
+        dtype=np.float32
+    )
+
+    non_zero_ratio = (
+        np.count_nonzero(sequence)
+        / sequence.size
+    )
+
+    if non_zero_ratio < 0.01:
+        skipped_count += 1
+        continue
+
+    mean = np.mean(sequence, axis=0)
+    std = np.std(sequence, axis=0)
+
+    sequence = (
+        sequence - mean
+    ) / (std + 1e-6)
 
     save_path = os.path.join(
         OUTPUT_DIR,
@@ -162,9 +196,18 @@ for video_file in tqdm(video_files):
 
     np.save(save_path, sequence)
 
+    saved += 1
+    saved_count += 1
+
 hands.close()
 pose.close()
 
 print("Dataset creation complete")
 print("Classes:", len(selected_classes))
-print("Feature size:", 258)
+
+print("\nDiagnostic Report")
+print("Matched Videos:", matched)
+print("Saved Videos:", saved)
+print("Too Short:", too_short)
+print("Not Found:", not_found)
+print("Skipped:", skipped_count)
